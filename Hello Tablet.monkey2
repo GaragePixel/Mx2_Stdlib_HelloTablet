@@ -11,34 +11,6 @@
 Using stdlib..
 Using sdk_mojo..
 
-#Rem
-PURPOSE:
-	Demonstrate basic tablet detection and usage with a simple
-	pressure-sensitive drawing canvas that works in both tablet
-	and mouse fallback modes.
-	
-FUNCTIONALITY:
-	- Tablet device detection with fallback to mouse input
-	- Basic pressure-sensitive drawing with variable line width
-	- Real-time display of tablet/mouse coordinates and pressure
-	- Simple canvas with clear functionality (press C key)
-	- Status display showing device name and availability
-	
-NOTES:
-	This implementation provides the minimum code necessary to
-	demonstrate tablet functionality. The drawing uses direct
-	line segments with pressure-mapped thickness for visual
-	feedback. Error handling ensures graceful fallback to mouse
-	input when tablet hardware is unavailable.
-	
-TECHNICAL ADVANTAGES:
-	- Minimum setup required for tablet detection and usage
-	- Graceful degradation to mouse input when tablet unavailable
-	- Clear visual indication of pressure through line thickness
-	- Efficient canvas management with minimal overhead
-	- Simple error detection pattern for hardware dependency
-#End
-
 '--------------------------------------------------------------
 ' Main Application
 '--------------------------------------------------------------
