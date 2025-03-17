@@ -1,5 +1,5 @@
 '==============================================================
-' Hello Drawing Tablet
+' Simple Color Pencil with Mouse Wheel Size Control
 ' Implementation: iDkP from GaragePixel
 ' 2025-03-17 Aida 4
 '==============================================================
@@ -7,84 +7,128 @@
 #Import "<stdlib>"
 #Import "<sdk_mojo>"
 
-'#Import "classic_sans.ttf"
-
 Using stdlib..
 Using sdk_mojo..
 
 '--------------------------------------------------------------
-' DrawingTabletApp - Main Application Class
+' ColorSwatch - Simple clickable color object
 '--------------------------------------------------------------
-Class DrawingTabletApp Extends sdk_mojo.m2.app.Window
+Class ColorSwatch
+	Field x:Float
+	Field y:Float
+	Field size:Float
+	Field color:Color
+	
+	Method New(x:Float, y:Float, size:Float, color:Color)
+		Self.x = x
+		Self.y = y
+		Self.size = size
+		Self.color = color
+	End
+	
+	Method Contains:Bool(px:Float, py:Float)
+		Return px >= x And px < x + size And py >= y And py < y + size
+	End
+	
+	Method Draw(canvas:Canvas, isSelected:Bool)
+		canvas.Color = color
+		canvas.DrawRect(x, y, size, size)
+		
+		If isSelected
+			canvas.Color = New Color(1, 1, 1)
+			canvas.DrawRect(x - 2, y - 2, size + 4, size + 4)
+		End
+	End
+End
+
+'--------------------------------------------------------------
+' SimpleColorPencil - Main Application Class
+'--------------------------------------------------------------
+Class SimpleColorPencil Extends sdk_mojo.m2.app.Window
 	' Drawing state
-	Field drawCanvas:Canvas        ' Canvas for drawing operations
-	Field drawImage:Image          ' Image holding the drawing surface
+	Field canvas:Canvas          ' Main canvas
+	Field drawImage:Image        ' Offscreen image for drawing
+	Field drawCanvas:Canvas      ' Canvas for offscreen image
 	Field tablet:stdlib.io.tablet.api.TabletManager
 	Field tabletAvailable:Bool = False
 	Field isDrawing:Bool = False
 	Field lastX:Float = 0
 	Field lastY:Float = 0
-	Field lineWidth:Float = 8.0
-	Field lineColor:Color = New Color(1, 0.6, 0.2)
+	Field pencilSize:Float = 5.0
+	Field pencilColor:Color = New Color(0, 0, 0)
 	
-	' UI state
-	Field debugFont:Font
-	Field colors:Color[]
-	Field colorIndex:Int = 0
+	' UI components
+	Field colorSwatches:ColorSwatch[]
+	Field selectedSwatch:Int = 0
 	
 	Method New()
-		' Set up window
-		Super.New("Hello Drawing Tablet", 1024, 768)
+		Super.New("Simple Color Pencil", 800, 600)
 		
 		' Create drawing surface
-		drawImage = New Image(Width, Height, PixelFormat.RGBA8, TextureFlags.Dynamic)
+		drawImage = New Image(Width, Height - 50, PixelFormat.RGBA8, TextureFlags.Dynamic)
 		drawCanvas = New Canvas(drawImage)
-		
-		' Clear drawing canvas to white
 		drawCanvas.Color = New Color(1, 1, 1)
 		drawCanvas.DrawRect(0, 0, Width, Height)
 		drawCanvas.Flush()
 		
-		' Set up debug font (deactivated for now)
-		'debugFont = Font.Open("font::DejaVuSans.ttf", 14)
-		
-		' Initialize color options
-		colors = New Color[5]
-		colors[0] = New Color(0, 0, 0)          ' Black
-		colors[1] = New Color(1, 0.2, 0.1)      ' Red
-		colors[2] = New Color(0.1, 0.6, 0.1)    ' Green
-		colors[3] = New Color(0.1, 0.4, 1)      ' Blue
-		colors[4] = New Color(0.8, 0.4, 0)      ' Orange
-		lineColor = colors[colorIndex]
+		' Set up color swatches
+		InitializeColorPalette()
 		
 		' Initialize tablet
 		tablet = stdlib.io.tablet.api.TabletManager.GetInstance()
 		tabletAvailable = tablet.Initialize()
 		If Not tabletAvailable
-			Print("Failed to initialize tablet system - using mouse fallback")
-		Else
-			Print("Tablet initialized: " + tablet.GetDeviceName())
+			Print("Using mouse fallback")
 		End
+	End
+	
+	Method InitializeColorPalette()
+		' Create basic color palette
+		Local colors:Color[] = New Color[8]
+		colors[0] = New Color(0, 0, 0)         ' Black
+		colors[1] = New Color(1, 0, 0)         ' Red
+		colors[2] = New Color(0, 0.7, 0)       ' Green
+		colors[3] = New Color(0, 0, 1)         ' Blue
+		colors[4] = New Color(1, 1, 0)         ' Yellow
+		colors[5] = New Color(1, 0, 1)         ' Magenta
+		colors[6] = New Color(0, 0.7, 0.7)     ' Cyan
+		colors[7] = New Color(0.5, 0.5, 0.5)   ' Gray
+		
+		' Create swatch objects
+		colorSwatches = New ColorSwatch[colors.Length]
+		Local swatchSize:Float = 30
+		Local startX:Float = 10
+		Local y:Float = 10
+		
+		For Local i:Int = 0 Until colors.Length
+			colorSwatches[i] = New ColorSwatch(startX + i * (swatchSize + 5), y, swatchSize, colors[i])
+		Next
+		
+		pencilColor = colors[0]
 	End
 	
 	Method OnRender(canvas:Canvas) Override
 		App.RequestRender()
 		
-		' Process input and handle drawing
-		ProcessInput()
+		' Handle input and drawing
+		HandleInput()
 		
-		' Draw the offscreen image to the screen
+		' Clear screen
+		canvas.Color = New Color(0.9, 0.9, 0.9)
+		canvas.DrawRect(0, 0, Width, Height)
+		
+		' Draw the drawing canvas
 		canvas.Color = Color.White
-		canvas.DrawImage(drawImage, 0, 0)
+		canvas.DrawImage(drawImage, 0, 50)
 		
-		' Draw UI and debug info
+		' Draw UI
 		DrawUI(canvas)
 		
 		canvas.Flush()
 	End
 	
-	Method ProcessInput()
-		' Handle tablet or mouse input for drawing
+	Method HandleInput()
+		' Get input coordinates
 		Local x:Float = 0
 		Local y:Float = 0
 		Local pressure:Float = 0
@@ -92,28 +136,42 @@ Class DrawingTabletApp Extends sdk_mojo.m2.app.Window
 		If tabletAvailable
 			tablet.Update()
 			x = tablet.GetX()
-			y = tablet.GetY()
+			y = tablet.GetY() - 50  ' Adjust for UI area
 			pressure = tablet.GetPressure()
 		Else
 			' Mouse fallback
 			x = Mouse.X
-			y = Mouse.Y
+			y = Mouse.Y - 50        ' Adjust for UI area
 			pressure = Mouse.ButtonDown(MouseButton.Left) ? 1.0 Else 0.0
 		End
 		
-		' Draw strokes
-		If pressure > 0.01
-			' Calculate line width based on pressure
-			Local strokeWidth:Float = lineWidth * (0.2 + pressure * 0.8)
+		' Handle mouse wheel for pencil size
+		Local wheelDelta:Int = Mouse.WheelY
+		If wheelDelta <> 0
+			pencilSize = Clamp(pencilSize + wheelDelta, 1.0, 50.0)
+		End
+		
+		' Handle color swatch selection
+		If Mouse.ButtonHit(MouseButton.Left) And Mouse.Y < 50
+			For Local i:Int = 0 Until colorSwatches.Length
+				If colorSwatches[i].Contains(Mouse.X, Mouse.Y)
+					selectedSwatch = i
+					pencilColor = colorSwatches[i].color
+					Exit
+				End
+			Next
+		End
+		
+		' Handle drawing
+		If y >= 0 And pressure > 0.01
+			Local strokeWidth:Float = pencilSize * (0.3 + pressure * 0.7)
 			
 			If Not isDrawing
-				' Start new stroke
 				isDrawing = True
 				lastX = x
 				lastY = y
 			Else
-				' Draw line from last position
-				drawCanvas.Color = lineColor
+				drawCanvas.Color = pencilColor
 				drawCanvas.LineWidth = strokeWidth
 				drawCanvas.DrawLine(lastX, lastY, x, y)
 				drawCanvas.Flush()
@@ -125,101 +183,37 @@ Class DrawingTabletApp Extends sdk_mojo.m2.app.Window
 			isDrawing = False
 		End
 		
-		' Handle keyboard input
-		HandleKeyboard()
-	End
-	
-	Method HandleKeyboard()
-		' Clear canvas on C key
+		' Handle clear canvas with C key
 		If Keyboard.KeyHit(Key.C)
 			drawCanvas.Color = New Color(1, 1, 1)
 			drawCanvas.DrawRect(0, 0, Width, Height)
 			drawCanvas.Flush()
 		End
-		
-		' Handle color selection
-		If Keyboard.KeyHit(Key.Key1) Then SetColor(0)
-		If Keyboard.KeyHit(Key.Key2) Then SetColor(1)
-		If Keyboard.KeyHit(Key.Key3) Then SetColor(2)
-		If Keyboard.KeyHit(Key.Key4) Then SetColor(3)
-		If Keyboard.KeyHit(Key.Key5) Then SetColor(4)
-		
-		' Adjust line width
-		If Keyboard.KeyDown(Key.LeftBracket)
-			lineWidth = Max(lineWidth - 0.5, 0.5)
-		End
-		
-		If Keyboard.KeyDown(Key.RightBracket)
-			lineWidth = Min(lineWidth + 0.5, Float(50))
-		End
-	End
-	
-	Method SetColor(index:Int)
-		If index >= 0 And index < colors.Length
-			colorIndex = index
-			lineColor = colors[colorIndex]
-		End
 	End
 	
 	Method DrawUI(canvas:Canvas)
-		' Save current canvas state
-		canvas.Font = debugFont
-		
-		' Draw status info panel background
-		canvas.Color = New Color(0, 0, 0, 0.7)
-		canvas.DrawRect(10, 10, 400, 190)
-		
-		' Draw status info text
-		canvas.Color = Color.White
-		
-		Local y:Int = 30
-		canvas.DrawText("Hello Drawing Tablet - Render to Image Example", 20, y)
-		y += 25
-		
-		If tabletAvailable
-			canvas.DrawText("Tablet: " + tablet.GetDeviceName(), 20, y)
-			y += 20
-			canvas.DrawText("Position: " + Int(tablet.GetX()) + ", " + Int(tablet.GetY()), 20, y)
-			y += 20
-			canvas.DrawText("Pressure: " + String(tablet.GetPressure()), 20, y)
-		Else
-			canvas.Color = New Color(1, 0.7, 0.7)
-			canvas.DrawText("Tablet not available - using mouse", 20, y)
-			y += 20
-			canvas.DrawText("Position: " + Int(Mouse.X) + ", " + Int(Mouse.Y), 20, y)
-		End
-		y += 30
-		
-		' Draw help info
-		canvas.Color = New Color(0.8, 0.8, 1)
-		canvas.DrawText("Press [1-5] to change colors, [C] to clear", 20, y)
-		canvas.DrawText("[[] and []] to adjust line width: " + String(lineWidth), 20, y + 20)
-		
 		' Draw color swatches
-		Local swatchSize:Float = 30
-		Local xPos:Float = 20
-		Local yPos:Float = y + 45
-		
-		For Local i:Int = 0 Until colors.Length
-			canvas.Color = colors[i]
-			canvas.DrawRect(xPos, yPos, swatchSize, swatchSize)
-			
-			If i = colorIndex
-				canvas.Color = New Color(1, 1, 1)
-				canvas.DrawRect(xPos - 2, yPos - 2, swatchSize + 4, swatchSize + 4)
-			End
-			
-			xPos += swatchSize + 10
+		For Local i:Int = 0 Until colorSwatches.Length
+			colorSwatches[i].Draw(canvas, i = selectedSwatch)
 		Next
+		
+		' Draw pencil size indicator
+		canvas.Color = New Color(0.2, 0.2, 0.2)
+		canvas.DrawText("Size: " + Int(pencilSize), Width - 100, 15)
+		canvas.Color = pencilColor
+		canvas.DrawCircle(Width - 130, 20, pencilSize / 2)
+		
+		' Draw help text
+		canvas.Color = New Color(0.3, 0.3, 0.3)
+		canvas.DrawText("Mouse wheel: brush size | C: clear", 300, 15)
 	End
 End
 
 '--------------------------------------------------------------
-' Program Entry Point 
+' Program Entry Point
 '--------------------------------------------------------------
-
 Function Main()
 	New AppInstance
-	New DrawingTabletApp
+	New SimpleColorPencil
 	App.Run()
 End
