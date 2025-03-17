@@ -1,8 +1,7 @@
 '==============================================================
 ' Hello Drawing Tablet
 ' Implementation: iDkP from GaragePixel
-' 2025-03-17 14:51:23
-' Aida 4
+' 2025-03-17 Aida 4
 '==============================================================
 
 #Import "<stdlib>"
@@ -12,46 +11,6 @@
 
 Using stdlib..
 Using sdk_mojo..
-
-#Rem
-PURPOSE:
-	Demonstrate drawing to an image canvas with tablet pressure sensitivity,
-	showcasing how to implement render-to-texture techniques with tablet input
-	for pressure-sensitive drawing applications.
-	
-FUNCTIONALITY:
-	- Tablet device detection with automatic mouse fallback
-	- Drawing to an offscreen image canvas (render-to-texture)
-	- Pressure-sensitive line thickness from tablet input
-	- Mouse input fallback with simulated maximum pressure
-	- Real-time input data display (position, pressure)
-	- Canvas clearing functionality (press C key)
-	- Simple color selection (number keys 1-5)
-	
-NOTES:
-	This implementation demonstrates the critical pattern of drawing to an
-	offscreen image buffer rather than directly to the screen canvas. This
-	approach provides several significant benefits for drawing applications:
-	
-	1. Persistence of drawn content between frames
-	2. Performance optimization by redrawing only changed areas
-	3. Ability to manipulate the entire drawing as a single texture
-	4. Separation of rendering concerns between UI and drawing content
-	
-	The render-to-texture approach used here follows the standard pattern of
-	creating an offscreen Image with a Canvas, drawing to that Canvas, 
-	flushing to update the texture, then displaying the resulting Image
-	on the main screen Canvas during each render cycle.
-	
-TECHNICAL ADVANTAGES:
-	- Optimized drawing pipeline with render-to-texture architecture
-	- Minimal performance impact through selective canvas updates
-	- Clean separation of drawing surface from UI elements
-	- Support for both tablet and mouse input through unified drawing API
-	- Efficient memory usage by maintaining a single drawing surface
-	- Resolution-independent drawing with automatic coordinate mapping
-	- Stable frame rate regardless of drawing complexity
-#End
 
 '--------------------------------------------------------------
 ' DrawingTabletApp - Main Application Class
